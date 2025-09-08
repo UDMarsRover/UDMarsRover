@@ -1,0 +1,32 @@
+{
+  "name": "ROS 2 Humble Development",
+  "version": "1.0.0",
+  "author": "UDMRT Team",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "context": "."
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-vscode.cpptools",
+        "ms-python.python",
+        "ms-iot.vscode-ros"
+      ],
+      "settings": {
+        "terminal.integrated.defaultProfile.linux": "bash",
+        "terminal.integrated.profiles.linux": {
+          "bash": {
+            "path": "/bin/bash"
+          }
+        }
+      }
+    }
+  },
+  "remoteUser": "udmrt",
+  "postCreateCommand": "sudo apt-get update && sudo apt-get upgrade -y && rosdep update && rosdep install --from-paths src --ignore-src -r -y",
+  "runArgs": [
+    "--privileged",
+    "--net=host"
+  ]
+}
