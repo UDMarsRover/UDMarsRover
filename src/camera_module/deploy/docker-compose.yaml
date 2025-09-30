@@ -1,0 +1,21 @@
+
+version: '3.8'
+services:
+  camera-servo:
+    build:
+      context: ../../../
+      dockerfile: src/camera_module/deploy/exec/Dockerfile
+    container_name: camera_servo
+    privileged: true
+    devices:
+      - /dev/gpiomem:/dev/gpiomem
+      - /dev/gpiochip0:/dev/gpiochip0
+      - /dev/i2c-1:/dev/i2c-1
+    environment:
+      - ROS_DOMAIN_ID=0
+    restart: unless-stopped
+    network_mode: host
+    ipc: host
+
+    command: tail -f /dev/null
+
