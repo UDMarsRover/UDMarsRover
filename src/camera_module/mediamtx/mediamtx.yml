@@ -1,3 +1,4 @@
+
 ###############################################
 # Global settings
 
@@ -764,11 +765,24 @@ pathDefaults:
 # for example "~^(test1|test2)$" will match both "test1" and "test2",
 # for example "~^prefix" will match all paths that start with "prefix".
 paths:
-  cam:
+  cam0:
     source: rpiCamera
+    rpiCameraCamID: 0
     rpiCameraWidth: 1280
     rpiCameraHeight: 720
     rpiCameraVFlip: true
     rpiCameraHFlip: true
     rpiCameraBitrate: 1500000
+  cam1:
+    source: rpiCamera
+    rpiCameraCamID: 1
+    rpiCameraWidth: 1280
+    rpiCameraHeight: 720
+    rpiCameraVFlip: true
+    rpiCameraHFlip: true
+    rpiCameraBitrate: 1500000
+  cam2:
+    source: publisher
+    runOnInit: ffmpeg -f v4l2 -i /dev/video16 -c:v libx264 -preset ultrafast -tune zerolatency -b:v 600k -f rtsp rtsp://localhost:$RTSP_PORT/$MTX_PATH
+    runOnInitRestart: yes
 
