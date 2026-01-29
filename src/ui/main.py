@@ -7,6 +7,56 @@ import Map
 import Windows
 import Terminal
 
+DARK_STYLESHEET = """
+QWidget {
+    background-color: #2b2b2b;
+    color: #e0e0e0;
+    font-family: Arial, sans-serif;
+}
+QMainWindow {
+    background-color: #2b2b2b;
+}
+QPushButton {
+    background-color: #3c3f41;
+    border: 1px solid #555;
+    color: #e0e0e0;
+    padding: 6px;
+    border-radius: 4px;
+}
+QPushButton:hover {
+    background-color: #484b4d;
+    border: 1px solid #666;
+}
+QPushButton:pressed {
+    background-color: #1e1e1e;
+}
+QTextEdit, QLineEdit {
+    background-color: #1e1e1e;
+    border: 1px solid #3c3f41;
+    color: #e0e0e0;
+    border-radius: 3px;
+    padding: 4px;
+}
+QLabel {
+    color: #e0e0e0;
+}
+QSlider::groove:horizontal {
+    border: 1px solid #3c3f41;
+    height: 8px;
+    background: #1e1e1e;
+    margin: 2px 0;
+    border-radius: 4px;
+}
+QSlider::handle:horizontal {
+    background: #3a8ee6;
+    border: 1px solid #3a8ee6;
+    width: 18px;
+    height: 18px;
+    margin: -6px 0;
+    border-radius: 9px;
+}
+"""
+
 class Button(QPushButton):
 
     def __init__(self, name, color, connection): #Add size?
@@ -262,6 +312,7 @@ class Output_Window(QWidget):
 if __name__ == "__main__":
     global app      #Global so it can be closed in "exit_confirmed"
     app = QApplication(sys.argv)
+    app.setStyleSheet(DARK_STYLESHEET)
 
     #Creating main widgets
     window = Windows.mainWindow()

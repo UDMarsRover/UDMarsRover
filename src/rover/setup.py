@@ -21,6 +21,7 @@ setup(
     entry_points={
         'console_scripts': [
             "motor_node = rover.motor_node:main",
+            "motor_gui = rover.drive.motor_gui:main",
         ],
     },
 )
