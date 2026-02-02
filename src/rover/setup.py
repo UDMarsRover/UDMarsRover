@@ -26,6 +26,8 @@ setup(
         'console_scripts': [
             "motor_node = rover.motor_node:main",
             "motor_gui = rover.drive.motor_gui:main",
+            "twist_control = rover.drive.twist_control_node:main",
+            "joy_twist = rover.drive.joy_twist_node:main",
         ],
     },
 )
