@@ -1,3 +1,5 @@
+import os
+from glob import glob
 from setuptools import find_packages, setup
 
 package_name = 'rover'
@@ -10,6 +12,8 @@ setup(
         ('share/ament_index/resource_index/packages',
             ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
+        (os.path.join('share', package_name, 'launch'), glob(os.path.join('launch', '*launch.[pxy][yma]*'))),
+
     ],
     install_requires=['setuptools'],
     zip_safe=True,
@@ -22,6 +26,9 @@ setup(
         'console_scripts': [
             "motor_node = rover.motor_node:main",
             "motor_gui = rover.drive.motor_gui:main",
+            "twist_control = rover.drive.twist_control_node:main",
+            "joy_twist = rover.drive.joy_twist_node:main",
+            "esc_status = rover.drive.esc_status_node:main",
         ],
     },
 )
