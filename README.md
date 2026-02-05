@@ -25,3 +25,9 @@ source install/setup.bash
 ```
 
 TODO: Launch base or rover systems.
+
+
+Enable individual motor telemetry:
+
+```bash
+ros2 service call /esc/enable_individual_telemetry std_srvs/srv/SetBool "{data: true}"
