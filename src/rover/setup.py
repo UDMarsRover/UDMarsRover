@@ -28,6 +28,7 @@ setup(
             "motor_gui = rover.drive.motor_gui:main",
             "twist_control = rover.drive.twist_control_node:main",
             "joy_twist = rover.drive.joy_twist_node:main",
+            "esc_status = rover.drive.esc_status_node:main",
         ],
     },
 )
