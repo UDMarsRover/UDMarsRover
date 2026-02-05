@@ -26,6 +26,8 @@ setup(
         'console_scripts': [
             "servo_node = camera_module.servo_ros:main",
             "dynamixel_node = camera_module.dynamixels.ros_dynamixel:main",
+            "camera_publisher = camera_module.camera_publisher:main",
+            "camera_viewer = camera_module.camera_viewer:main",
         ],
     },
 )
