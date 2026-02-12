@@ -5,6 +5,7 @@ from flask import Flask, Response, request
 import threading
 import time
 import numpy as np
+from rclpy.node import Node
 
 app = Flask(__name__)
 
@@ -32,7 +33,7 @@ DEFAULT_OUTPUT_SETTINGS = {
 # Shared camera data structure
 initial_output_res = OUTPUT_RESOLUTIONS[DEFAULT_OUTPUT_SETTINGS["resolution"]]
 initial_frame = np.zeros((initial_output_res[1], initial_output_res[0], 3), dtype=np.uint8)
-
+#dict storing camera info for each of the cameras, incudling most recent frame, lock, ect
 latest_camera_data = {
     0: {
         "frame": initial_frame,
@@ -49,7 +50,75 @@ latest_camera_data = {
         "picam2": None,
     }
 }
+"""
+This function aims to read the morse code apart of the competition. 
+@param camera_id is the id of the picam being used 
+@returns 
+"""
+def read_morse_from_camera(camera_id):
+    #TODO Need to figure out the camera fps (dots/dashes could and probably will last multiple frames)
+    morse_result = ""
+    #pattern will be fed into current_morse_pattern, then checked against db of patterns 
+    #once a pattern is detected, it will be appended to the result, and the array will clear 
+    current_morse_pattern = []
+    #a single, quick flash of light 
+    DOT = 0 
+    # - is a light flash around 3x longer than a dot 
+    DASH = 1
+    #A pause indicates a new letter 
+    PAUSE = 2
 
+    #Create a dictionary to compare current_morse_pattern to 
+    MORSE_ALPHABET = {
+        (DOT, DASH): "A", 
+        (DASH, DOT, DOT, DOT): "B", 
+        (DASH, DOT, DASH, DOT): "C",
+        (DASH, DOT, DOT): "D", 
+        (DOT): "E", 
+        (DOT, DOT, DASH, DOT): "F",
+        (DASH, DASH, DOT): "G",
+        (DOT, DOT, DOT, DOT): "H",
+        (DOT, DOT): "I", 
+        (DOT, DASH, DASH, DASH): "J",
+        (DASH, DOT, DASH): "K",
+        (DOT, DASH, DOT, DOT): "L",
+        (DASH, DASH): "M",
+        (DASH, DOT): "N",
+        (DASH, DASH, DASH): "O",
+        (DOT, DASH, DASH, DOT): "P",
+        (DASH, DASH, DOT, DASH): "Q",
+        (DOT, DASH, DOT): "R",
+        (DOT, DOT, DOT): "S",
+        (DASH): "T",
+        (DOT, DOT, DASH): "U",
+        (DOT, DOT, DOT, DASH): "V",
+        (DOT, DASH, DASH): "W",
+        (DASH, DOT, DOT, DASH): "X",
+        (DASH, DOT, DASH, DASH): "Y",
+        (DASH, DASH, DOT, DOT): "Z",
+        #-----------NUMBERS------------
+        (DASH, DASH, DASH, DASH, DASH): "0",
+        (DOT, DASH, DASH, DASH, DASH): "1",
+        (DOT, DOT, DASH, DASH, DASH): "2",
+        (DOT, DOT, DOT, DASH, DASH): "3",
+        (DOT, DOT, DOT, DOT, DASH): "4",
+        (DOT, DOT, DOT, DOT, DOT): "5",
+        (DASH, DOT, DOT, DOT, DOT): "6",
+        (DASH, DASH, DOT, DOT, DOT): "7",
+        (DASH, DASH, DASH, DOT, DOT): "8",
+        (DASH, DASH, DASH, DASH, DOT): "9"
+    }
+    while True:
+        with latest_camera_data[camera_id]["lock"]:
+            frame = latest_camera_data[camera_id]["frame"]
+        
+        if frame is not None:
+            # 1. Analyze the 'frame' for a bright light (OpenCV)
+
+            # 2. Determine if it's a Dot or Dash based on duration
+            # 3. If a full letter is found, return/print it
+            pass
+        
 def capture_and_process_frames(camera_id):
     print(f"Starting capture thread for camera {camera_id}...")
     picam2 = None
@@ -167,15 +236,19 @@ def generate_frames(camera_id, aruco_enabled=False):
 
         time.sleep(1.0 / 15.0)
 
+
 @app.route('/stream/<int:camera_id>')
 def stream_feed(camera_id):
+    #check if camera data is being found and functional 
     if camera_id not in latest_camera_data:
+        #return https 400 
         return "Invalid camera ID. Use 0 or 1.", 400
     if latest_camera_data[camera_id]["picam2"] is None:
         return f"Camera {camera_id} is not available.", 503
-
+    #request current resolution and zoom
     requested_resolution = request.args.get('resolution', DEFAULT_OUTPUT_SETTINGS["resolution"]).lower()
     requested_zoom_str = request.args.get('zoom', str(DEFAULT_OUTPUT_SETTINGS["zoom"]))
+
     aruco_enabled = request.args.get('aruco', 'false').lower() == 'true'
 
     if requested_resolution not in OUTPUT_RESOLUTIONS:
