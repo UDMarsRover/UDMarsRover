@@ -22,4 +22,10 @@ def generate_launch_description():
             name='joy_twist_node',
             output='screen'
         ),
+        Node(
+            package='rover',
+            executable='joint_state_pub',
+            name='joint_state_pub_node',
+            output='screen'
+        )
     ])
