@@ -29,6 +29,7 @@ setup(
             "twist_control = rover.drive.twist_control_node:main",
             "joy_twist = rover.drive.joy_twist_node:main",
             "esc_status = rover.drive.esc_status_node:main",
+            "joint_state_pub = rover.drive.joint_state_pub:main",
         ],
     },
 )
