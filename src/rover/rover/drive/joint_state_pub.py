@@ -17,8 +17,8 @@ class JointStatePublisher(Node):
         self.declare_parameter('joint_names', ['joint1', 'joint2', 'joint3', 'joint4', 'joint5', 'joint6'])
         self.declare_parameter('gear_ratio', 1.0/75.0)
         self.declare_parameter('encoder_ticks_per_revolution', 42.0)
-        self.declare_parameter('wheel_diameter', 0.2)  # in meters
-        self.declare_parameter('robot_width', 0.5)  # in meters
+        self.declare_parameter('wheel_diameter', 0.15)  # in meters
+        self.declare_parameter('robot_width', 0.6)  # in meters
 
         # Get parameters
         self.joint_names = self.get_parameter('joint_names').get_parameter_value().string_array_value
@@ -92,7 +92,6 @@ class JointStatePublisher(Node):
             wheel_velocities.append(linear_velocity)
 
         self.joint_state_publisher.publish(joint_state_msg)
-        self.get_logger().info("Published joint states.")
 
         # Compute odometry
         self.compute_odometry(wheel_velocities)
@@ -141,7 +140,6 @@ class JointStatePublisher(Node):
         odom_msg.twist.twist.angular.z = angular_velocity
 
         self.odom_publisher.publish(odom_msg)
-        self.get_logger().info("Published odometry.")
 
         # Publish TF from odom to base_link
         transform = TransformStamped()
