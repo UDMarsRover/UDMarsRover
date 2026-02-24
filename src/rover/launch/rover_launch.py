@@ -27,5 +27,11 @@ def generate_launch_description():
             executable='joint_state_pub',
             name='joint_state_pub_node',
             output='screen'
+        ),
+        Node(
+            package='joy',
+            executable='joy_node',
+            name='joy_node',
+            output='screen'
         )
     ])
