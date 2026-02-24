@@ -1,0 +1,30 @@
+ekf_filter_node:
+  ros__parameters:
+    frequency: 30.0
+    two_d_mode: true             # Set to true for 2D ground robots
+    publish_tf: true             # EKF will publish the odom -> base_link transform
+
+    map_frame: map
+    odom_frame: odom
+    base_link_frame: base_link
+    world_frame: odom            # The "zero" point for this local filter
+
+    # --- Wheel Odometry ---
+    odom0: /odom                 # Change to your wheel odom topic
+    # We feed the EKF linear velocity X and angular velocity Z from the wheels.
+    # We don't feed absolute position (x, y, yaw) to avoid fighting with the filter.
+    odom0_config: [false, false, false,
+                   false, false, false,
+                   true,  false, false,
+                   false, false, true,
+                   false, false, false]
+    
+    # --- MPU6050 IMU ---
+    imu0: /imu/data              # Change to your IMU topic
+    # We feed the EKF yaw (absolute heading), yaw velocity, and X linear acceleration.
+    imu0_config: [false, false, false,
+                  false, false, true,
+                  false, false, false,
+                  false, false, true,
+                  true,  false, false]
+    imu0_remove_gravitational_acceleration: true # MPU6050 usually includes gravity
