@@ -58,13 +58,15 @@ This function aims to read the morse code apart of the competition.
 def read_morse_from_camera(camera_id):
     #TODO Need to figure out the camera fps (dots/dashes could and probably will last multiple frames)
     morse_result = ""
-    #pattern will be fed into current_morse_pattern, then checked against db of patterns 
+    #pattern will be fed into current_morse_pattern, then checked against db of patterns
     #once a pattern is detected, it will be appended to the result, and the array will clear 
     current_morse_pattern = []
 
+    #Append pattern to words 
+    result = ""
     #the amount of time for each 
-    T = 0.2  # 200 ms
-
+    DIT = 0.2  # 200 ms
+    
     #a single, quick flash of light 
     DOT = 0 
 
@@ -75,7 +77,7 @@ def read_morse_from_camera(camera_id):
     PAUSE = 2
 
     #create a threshhold for light to be blinking 
-    THRESHOLD = 200
+    THRESHOLD = 225
 
     #create a boolean to track if light is on 
     light_on = False
@@ -121,38 +123,65 @@ def read_morse_from_camera(camera_id):
         (DASH, DASH, DASH, DASH, DOT): "9"
     }
 
-    while True:
+    while result == "":
         with latest_camera_data[camera_id]["lock"]:
-            frame = latest_camera_data[camera_id]["frame"].copy()
-            #black and white version of numpy
-            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-            #values will be 0 if below 200, 255 if above 
-            _, binary_frame = cv2.threshold(gray, 200, 255, cv2.THRESH_BINARY)
+            frame = latest_camera_data[camera_id]["frame"]
+            if frame is not None:
+                frame = frame.copy()
+                #black and white version of numpy
+                gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+                #values will be 0 if below 200, 255 if above 
+                _, binary_frame = cv2.threshold(gray, 200, 255, cv2.THRESH_BINARY)
 
-            #find the location of the flash 
-            min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(binary_frame, mask=None)
+                #find the location of the flash 
+                min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(binary_frame, mask=None)
 
-            #seperate x and y coordinates
-            x, y  = max_loc
+                #seperate x and y coordinates
+                x, y  = max_loc
 
-            #find row, col of the brightest part of the frame and study that spot 
-            light_region = gray[max(x-10, x+10), max(y-10, y+10)]
-            #calculate average brightness of the region 
-            avg_brightness_of_region = np.mean(light_region)
-        if frame is not None:
-            #check if most of the frame is above the threshhold (light is on)
-            if(np.mean(binary_frame) > THRESHOLD):
-        
-                start_blink = time.time()
-            else:
-                end_blink = time.time()
-        
-                total_blink_time = start_blink - end_blink
+                #find row, col of the brightest part of the frame and study that spot 
+                light_region = gray[(x-10, x+10), (y-10, y+10)]
+
                 
-            if(total_blink_time < 2 * T):
-                current_morse_pattern.append(DOT)
-            else:
-                current_morse_pattern.append(DASH)
+ 
+                #check if most of the light area is above the threshhold (light is on)
+                if(np.mean(light_region) > THRESHOLD):
+                    light_on = True
+                    start_blink = time.perf_counter()
+
+                """Need to implement a way to update the frame while inside the loop
+                Also find the time outside of a loop"""
+                while light_on:
+        
+                    if(np.mean(light_region) < THRESHOLD):
+                        end_blink = time.perf_counter()
+                        light_on = False
+
+                #calculate total blink time
+                total_blink_time = end_blink - start_blink
+
+                #check for new word (given 75 ms buffer)
+                if((DIT * 7) -0.075 < total_blink_time < (DIT * 7) + 0.075):
+                    if len(current_morse_pattern) != 0:
+                        #does this work? --------------------------------------
+                        result = MORSE_ALPHABET.get(tuple(current_morse_pattern))
+                        current_morse_pattern = []
+                        total_blink_time = 0
+                   
+                #check for dash (175 - 275)
+                elif((DIT * 2) -0.025 < total_blink_time < (DIT * 2) + 0.075):
+                    current_morse_pattern.append(DASH)
+                    #reset blink time to 0
+                    total_blink_time = 0
+
+                #check for dot (75-150)
+                elif DIT - 0.025 < total_blink_time < 0.150:
+                    current_morse_pattern.append(DOT)
+                    total_blink_time = 0
+    return result
+
+
+    
 
 
 
