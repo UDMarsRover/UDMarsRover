@@ -6,9 +6,38 @@ import threading
 import time
 import numpy as np
 from rclpy.node import Node
+from std_msgs.msg import String
+from std_msgs.msg import Double
 
 app = Flask(__name__)
 
+class Morse_Publisher(Node):
+    def __init__(self):
+        super().__init__('morse_output_node')
+        #10 is the maximum queue size of messages before a subscriber fetches
+        self.publisher = self.create_publisher(String, '/vision/morseoutput', 10)
+        self.get_logger().info("MorsePublisher initialized")
+
+    
+    def append_morse(self, data : str):
+        msg = String()
+        msg.data = data 
+        self.publisher.publish(msg)
+        self.get_logger().info(f'Publishing morse : "{data}"')
+
+
+class Aruco_Publisher(Node):
+    def __init__(self):
+        super().__init__('aruco_output_code')
+        self.publisher = self.create_publisher(Double, '/vision/arucooutput', 10)
+        self.get_logger().info("AruroPublisher initialized")
+    
+    def publish_aruco(self, code : Double):
+        msg = String()
+        msg.code = code
+        self.publisher.publish(msg)
+        self.get_logger().info(f'Aruco code published!"{code}"')
+    
 # Resolution presets
 OUTPUT_RESOLUTIONS = {
     "480p": (640, 480),
@@ -128,7 +157,11 @@ def read_morse_from_camera(camera_id):
         (DASH, DASH, DASH, DASH, DOT): "9"
     }
 
-    while True:
+    node = Morse_Publisher()
+    
+    
+    #run until node is destroyed?
+    while rclpy.ok():
         with latest_camera_data[camera_id]["lock"]:
             frame = latest_camera_data[camera_id]["frame"]
             if frame is not None:
@@ -176,6 +209,8 @@ def read_morse_from_camera(camera_id):
                             #does this work? --------------------------------------
                             result += MORSE_ALPHABET.get(tuple(current_morse_pattern), "?")
                             result += " "
+                            #add the letter to the node msg
+                            node.append_morse(result)
                             current_morse_pattern = []
                             total_blink_time = -1
                             total_off_time = -1
@@ -195,10 +230,10 @@ def read_morse_from_camera(camera_id):
                     elif DIT - 0.025 < total_blink_time < 0.150:
                         current_morse_pattern.append(DOT)
                         total_blink_time = -1
+        
 
 
-    return result
-    
+
 
 
 
