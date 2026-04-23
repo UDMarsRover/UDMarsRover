@@ -85,9 +85,6 @@ This function aims to read the morse code apart of the competition.
 @returns 
 """
 def read_morse_from_camera(camera_id):
-    #TODO: Implement a node to display both the current morse pattern, and the result
-    #pattern will be fed into current_morse_pattern, then checked against db of patterns
-    #once a pattern is detected, it will be appended to the result, and the array will clear 
     current_morse_pattern = []
     #variables for tracking time 
     start_blink = -1
@@ -95,7 +92,7 @@ def read_morse_from_camera(camera_id):
     start_dark = time.perf_counter()
     end_dark = time.perf_counter()
     total_blink_time = -1
-    total_off_time = time.perf_counter()
+    total_off_time = -1
     #Append pattern to words 
     result = ""
     #the amount of time for each 
@@ -156,12 +153,13 @@ def read_morse_from_camera(camera_id):
         (DASH, DASH, DASH, DOT, DOT): "8",
         (DASH, DASH, DASH, DASH, DOT): "9"
     }
-
+    #------------------------------------------------------#
     node = Morse_Publisher()
-    
+    #------------------------------------------------------#
     
     #run until node is destroyed?
     while rclpy.ok():
+        #grab most recent frame (possible threading issues?)
         with latest_camera_data[camera_id]["lock"]:
             frame = latest_camera_data[camera_id]["frame"]
             if frame is not None:
@@ -171,7 +169,7 @@ def read_morse_from_camera(camera_id):
                 #values will be 0 if below 200, 255 if above 
                 _, binary_frame = cv2.threshold(gray, THRESHOLD, 255, cv2.THRESH_BINARY)
 
-                #find the location of the flash                  could change this to gray if not working 
+                #find the location of the flash         could change this to gray if not working 
                 min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(binary_frame)
 
                 #seperate x and y coordinates
@@ -182,19 +180,19 @@ def read_morse_from_camera(camera_id):
                 y2 = min(gray.shape[0], y+10)
                 x1 = max(0, x-10)
                 x2 = min(gray.shape[1], x+10)
-
+                #parse brightest region for observation 
                 light_region = gray[y1:y2, x1:x2]
 
                 brightness = np.mean(light_region)
- 
+                #boolean to start the dark period after the first light is detected
+                seen_first_blink = False
                 #check if most of the light area is above the threshhold (light is on)
-                if(brightness > THRESHOLD and not light_on):
+                if(brightness >= THRESHOLD and not light_on):
                     light_on = True
                     start_blink = time.perf_counter()
+                    total_off_time = time.perf_counter() - start_dark
 
-                    end_dark = time.perf_counter()
-                    total_off_time = end_dark - start_dark
-
+                #check if the light is off
                 if(brightness < THRESHOLD and start_blink != -1):
                     end_blink = time.perf_counter()
                     total_blink_time = end_blink - start_blink
@@ -206,11 +204,12 @@ def read_morse_from_camera(camera_id):
                     #check for new word (given 75 ms buffer)
                     if((DIT * 7) -0.075 < total_off_time < (DIT * 7) + 0.075):
                         if len(current_morse_pattern) != 0:
-                            #does this work? --------------------------------------
                             result += MORSE_ALPHABET.get(tuple(current_morse_pattern), "?")
                             result += " "
+                            #------------------------------------------------------#
                             #add the letter to the node msg
                             node.append_morse(result)
+                            #------------------------------------------------------#
                             current_morse_pattern = []
                             total_blink_time = -1
                             total_off_time = -1
@@ -227,16 +226,9 @@ def read_morse_from_camera(camera_id):
                         total_blink_time = -1
 
                     #check for dot (75-150)
-                    elif DIT - 0.025 < total_blink_time < 0.150:
+                    elif DIT - 0.025 < total_blink_time < DIT - 0.25:
                         current_morse_pattern.append(DOT)
                         total_blink_time = -1
-        
-
-
-
-
-
-
         
 def capture_and_process_frames(camera_id):
     print(f"Starting capture thread for camera {camera_id}...")
@@ -327,6 +319,10 @@ def capture_and_process_frames(camera_id):
         latest_camera_data[camera_id]["picam2"] = None
 
 def generate_frames(camera_id, aruco_enabled=False):
+    #------------------------------------------------------#
+    node = Aruco_Publisher()
+    aruco_string = ""
+    #------------------------------------------------------#
     # Initialize ArUco detector only once per generator
     if aruco_enabled:
         aruco_dict = aruco.getPredefinedDictionary(aruco.DICT_6X6_250)
@@ -344,6 +340,10 @@ def generate_frames(camera_id, aruco_enabled=False):
             corners, ids, _ = aruco.detectMarkers(gray, aruco_dict, parameters=parameters)
             if ids is not None and len(ids) > 0:
                 frame = aruco.drawDetectedMarkers(frame, corners, ids)
+                #------------------------------------------------------#
+                for i in range(len(ids)):
+                    aruco_string += ids[i] + " "
+                #------------------------------------------------------#
 
         ret, buffer = cv2.imencode('.jpg', frame, [int(cv2.IMWRITE_JPEG_QUALITY), 90])
         if not ret:
@@ -355,6 +355,9 @@ def generate_frames(camera_id, aruco_enabled=False):
 
         time.sleep(1.0 / 15.0)
 
+        #------------------------------------------------------#
+        node.publish_aruco(aruco_string)
+        #------------------------------------------------------#
 
 @app.route('/stream/<int:camera_id>')
 def stream_feed(camera_id):
