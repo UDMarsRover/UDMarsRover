@@ -1,0 +1,17 @@
+{
+    "name": "micro-ROS Development",
+    "image": "microros/micro-ros-agent:humble",
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "ms-iot.vscode-ros",
+                "ms-python.python"
+            ]
+        }
+    },
+    "remoteUser": "root",
+    "runArgs": [
+        "--privileged",
+        "-v", "/dev:/dev"
+    ]
+}

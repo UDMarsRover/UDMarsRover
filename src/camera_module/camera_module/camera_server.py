@@ -5,9 +5,39 @@ from flask import Flask, Response, request
 import threading
 import time
 import numpy as np
+from rclpy.node import Node
+from std_msgs.msg import String
+from std_msgs.msg import Double
 
 app = Flask(__name__)
 
+class Morse_Publisher(Node):
+    def __init__(self):
+        super().__init__('morse_output_node')
+        #10 is the maximum queue size of messages before a subscriber fetches
+        self.publisher = self.create_publisher(String, '/vision/morseoutput', 10)
+        self.get_logger().info("MorsePublisher initialized")
+
+    
+    def append_morse(self, data : str):
+        msg = String()
+        msg.data = data 
+        self.publisher.publish(msg)
+        self.get_logger().info(f'Publishing morse : "{data}"')
+
+
+class Aruco_Publisher(Node):
+    def __init__(self):
+        super().__init__('aruco_output_code')
+        self.publisher = self.create_publisher(Double, '/vision/arucooutput', 10)
+        self.get_logger().info("AruroPublisher initialized")
+    
+    def publish_aruco(self, code : Double):
+        msg = String()
+        msg.code = code
+        self.publisher.publish(msg)
+        self.get_logger().info(f'Aruco code published!"{code}"')
+    
 # Resolution presets
 OUTPUT_RESOLUTIONS = {
     "480p": (640, 480),
@@ -32,7 +62,7 @@ DEFAULT_OUTPUT_SETTINGS = {
 # Shared camera data structure
 initial_output_res = OUTPUT_RESOLUTIONS[DEFAULT_OUTPUT_SETTINGS["resolution"]]
 initial_frame = np.zeros((initial_output_res[1], initial_output_res[0], 3), dtype=np.uint8)
-
+#dict storing camera info for each of the cameras, incudling most recent frame, lock, ect
 latest_camera_data = {
     0: {
         "frame": initial_frame,
@@ -49,7 +79,157 @@ latest_camera_data = {
         "picam2": None,
     }
 }
+"""
+This function aims to read the morse code apart of the competition. 
+@param camera_id is the id of the picam being used 
+@returns 
+"""
+def read_morse_from_camera(camera_id):
+    current_morse_pattern = []
+    #variables for tracking time 
+    start_blink = -1
+    end_blink = -1
+    start_dark = time.perf_counter()
+    end_dark = time.perf_counter()
+    total_blink_time = -1
+    total_off_time = -1
+    #Append pattern to words 
+    result = ""
+    #the amount of time for each 
+    DIT = 0.2  # 200 ms
+    
+    #a single, quick flash of light 
+    DOT = 0 
 
+    # - is a light flash around 3x longer than a dot 
+    DASH = 1
+
+    #A pause indicates a new letter 
+    PAUSE = 2
+
+    #create a threshhold for light to be blinking 
+    THRESHOLD = 225
+
+    #create a boolean to track if light is on 
+    light_on = False
+
+    #Create a dictionary to compare current_morse_pattern to 
+    MORSE_ALPHABET = {
+        (DOT, DASH): "A", 
+        (DASH, DOT, DOT, DOT): "B", 
+        (DASH, DOT, DASH, DOT): "C",
+        (DASH, DOT, DOT): "D", 
+        (DOT,): "E", 
+        (DOT, DOT, DASH, DOT): "F",
+        (DASH, DASH, DOT): "G",
+        (DOT, DOT, DOT, DOT): "H",
+        (DOT, DOT): "I", 
+        (DOT, DASH, DASH, DASH): "J",
+        (DASH, DOT, DASH): "K",
+        (DOT, DASH, DOT, DOT): "L",
+        (DASH, DASH): "M",
+        (DASH, DOT): "N",
+        (DASH, DASH, DASH): "O",
+        (DOT, DASH, DASH, DOT): "P",
+        (DASH, DASH, DOT, DASH): "Q",
+        (DOT, DASH, DOT): "R",
+        (DOT, DOT, DOT): "S",
+        (DASH,): "T",
+        (DOT, DOT, DASH): "U",
+        (DOT, DOT, DOT, DASH): "V",
+        (DOT, DASH, DASH): "W",
+        (DASH, DOT, DOT, DASH): "X",
+        (DASH, DOT, DASH, DASH): "Y",
+        (DASH, DASH, DOT, DOT): "Z",
+        #-----------NUMBERS------------
+        (DASH, DASH, DASH, DASH, DASH): "0",
+        (DOT, DASH, DASH, DASH, DASH): "1",
+        (DOT, DOT, DASH, DASH, DASH): "2",
+        (DOT, DOT, DOT, DASH, DASH): "3",
+        (DOT, DOT, DOT, DOT, DASH): "4",
+        (DOT, DOT, DOT, DOT, DOT): "5",
+        (DASH, DOT, DOT, DOT, DOT): "6",
+        (DASH, DASH, DOT, DOT, DOT): "7",
+        (DASH, DASH, DASH, DOT, DOT): "8",
+        (DASH, DASH, DASH, DASH, DOT): "9"
+    }
+    #------------------------------------------------------#
+    node = Morse_Publisher()
+    #------------------------------------------------------#
+    
+    #run until node is destroyed?
+    while rclpy.ok():
+        #grab most recent frame (possible threading issues?)
+        with latest_camera_data[camera_id]["lock"]:
+            frame = latest_camera_data[camera_id]["frame"]
+            if frame is not None:
+                frame = frame.copy()
+                #black and white version of numpy
+                gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+                #values will be 0 if below 200, 255 if above 
+                _, binary_frame = cv2.threshold(gray, THRESHOLD, 255, cv2.THRESH_BINARY)
+
+                #find the location of the flash         could change this to gray if not working 
+                min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(binary_frame)
+
+                #seperate x and y coordinates
+                x, y  = max_loc
+
+                #find row, col of the brightest part of the frame and study that spot 
+                y1 = max(0, y-10)
+                y2 = min(gray.shape[0], y+10)
+                x1 = max(0, x-10)
+                x2 = min(gray.shape[1], x+10)
+                #parse brightest region for observation 
+                light_region = gray[y1:y2, x1:x2]
+
+                brightness = np.mean(light_region)
+                #boolean to start the dark period after the first light is detected
+                seen_first_blink = False
+                #check if most of the light area is above the threshhold (light is on)
+                if(brightness >= THRESHOLD and not light_on):
+                    light_on = True
+                    start_blink = time.perf_counter()
+                    total_off_time = time.perf_counter() - start_dark
+
+                #check if the light is off
+                if(brightness < THRESHOLD and start_blink != -1):
+                    end_blink = time.perf_counter()
+                    total_blink_time = end_blink - start_blink
+                    light_on = False
+                    start_blink = -1
+                    start_dark = time.perf_counter()
+            
+                if not light_on and total_blink_time != -1:
+                    #check for new word (given 75 ms buffer)
+                    if((DIT * 7) -0.075 < total_off_time < (DIT * 7) + 0.075):
+                        if len(current_morse_pattern) != 0:
+                            result += MORSE_ALPHABET.get(tuple(current_morse_pattern), "?")
+                            result += " "
+                            #------------------------------------------------------#
+                            #add the letter to the node msg
+                            node.append_morse(result)
+                            #------------------------------------------------------#
+                            current_morse_pattern = []
+                            total_blink_time = -1
+                            total_off_time = -1
+                    # check for new letter (3 DIT pause, ~600ms)
+                    elif (DIT * 3) - 0.075 < total_off_time < (DIT * 3) + 0.075:
+                        if len(current_morse_pattern) != 0:
+                            result += MORSE_ALPHABET.get(tuple(current_morse_pattern), "?")
+                            current_morse_pattern = []
+                            total_blink_time = -1
+                    #check for dash (175 - 275)
+                    elif((DIT * 2) -0.025 < total_blink_time < (DIT * 2) + 0.075):
+                        current_morse_pattern.append(DASH)
+                        #reset blink time to 0
+                        total_blink_time = -1
+
+                    #check for dot (75-150)
+                    elif DIT - 0.025 < total_blink_time < DIT - 0.25:
+                        current_morse_pattern.append(DOT)
+                        total_blink_time = -1
+        
 def capture_and_process_frames(camera_id):
     print(f"Starting capture thread for camera {camera_id}...")
     picam2 = None
@@ -139,6 +319,10 @@ def capture_and_process_frames(camera_id):
         latest_camera_data[camera_id]["picam2"] = None
 
 def generate_frames(camera_id, aruco_enabled=False):
+    #------------------------------------------------------#
+    node = Aruco_Publisher()
+    aruco_string = ""
+    #------------------------------------------------------#
     # Initialize ArUco detector only once per generator
     if aruco_enabled:
         aruco_dict = aruco.getPredefinedDictionary(aruco.DICT_6X6_250)
@@ -156,6 +340,10 @@ def generate_frames(camera_id, aruco_enabled=False):
             corners, ids, _ = aruco.detectMarkers(gray, aruco_dict, parameters=parameters)
             if ids is not None and len(ids) > 0:
                 frame = aruco.drawDetectedMarkers(frame, corners, ids)
+                #------------------------------------------------------#
+                for i in range(len(ids)):
+                    aruco_string += ids[i] + " "
+                #------------------------------------------------------#
 
         ret, buffer = cv2.imencode('.jpg', frame, [int(cv2.IMWRITE_JPEG_QUALITY), 90])
         if not ret:
@@ -167,15 +355,22 @@ def generate_frames(camera_id, aruco_enabled=False):
 
         time.sleep(1.0 / 15.0)
 
+        #------------------------------------------------------#
+        node.publish_aruco(aruco_string)
+        #------------------------------------------------------#
+
 @app.route('/stream/<int:camera_id>')
 def stream_feed(camera_id):
+    #check if camera data is being found and functional 
     if camera_id not in latest_camera_data:
+        #return https 400 
         return "Invalid camera ID. Use 0 or 1.", 400
     if latest_camera_data[camera_id]["picam2"] is None:
         return f"Camera {camera_id} is not available.", 503
-
+    #request current resolution and zoom
     requested_resolution = request.args.get('resolution', DEFAULT_OUTPUT_SETTINGS["resolution"]).lower()
     requested_zoom_str = request.args.get('zoom', str(DEFAULT_OUTPUT_SETTINGS["zoom"]))
+
     aruco_enabled = request.args.get('aruco', 'false').lower() == 'true'
 
     if requested_resolution not in OUTPUT_RESOLUTIONS:
