@@ -1,0 +1,47 @@
+ekf_filter_node:
+  ros__parameters:
+    frequency: 30.0
+    sensor_timeout: 0.2
+    two_d_mode: true
+
+    # Frames
+    map_frame: map            # unused in pure local; still required by node
+    odom_frame: odom
+    base_link_frame: base_link
+    world_frame: odom
+
+    publish_tf: true
+    publish_acceleration: false
+
+    # Wheel odometry input (your joint_state_pub.py publishes nav_msgs/Odometry on "odom")
+    odom0: /odom
+    odom0_config: [
+      true,  true,  false,   # x, y, z
+      false, false, true,    # roll, pitch, yaw
+      true,  true,  false,   # vx, vy, vz
+      false, false, true,    # vroll, vpitch, vyaw
+      false, false, false    # ax, ay, az
+    ]
+    odom0_queue_size: 10
+    odom0_differential: false
+    odom0_relative: false
+
+    # IMU input (your micro-ROS publishes sensor_msgs/Imu on "imu_raw")
+    imu0: /imu_raw
+
+    # Use only angular velocity and linear acceleration (NOT orientation)
+    imu0_config: [
+      false, false, false,   # x, y, z
+      false, false, false,   # roll, pitch, yaw
+      false, false, false,   # vx, vy, vz
+      true,  true,  true,    # vroll, vpitch, vyaw  (gyro)
+      true,  true,  false    # ax, ay, az (2D: fuse ax, ay; ignore az)
+    ]
+    imu0_queue_size: 20
+    imu0_differential: false
+    imu0_relative: false
+
+    imu0_remove_gravitational_acceleration: true
+
+    # If your IMU reports in ENU already, keep false. If it reports NED, set true.
+    imu0_nodelay: false

@@ -1,4 +1,6 @@
 #include <micro_ros_arduino.h>
+#include <rmw_microros/rmw_microros.h>
+#include <builtin_interfaces/msg/time.h>
 #include <stdio.h>
 #include <rcl/rcl.h>
 #include <rcl/error_handling.h>
@@ -6,7 +8,9 @@
 #include <rclc/executor.h>
 #include <std_msgs/msg/float32_multi_array.h>
 #include <std_msgs/msg/bool.h>
+#include <sensor_msgs/msg/imu.h>
 #include <CANSAME5x.h>
+#include <Wire.h>
 
 // CAN Configuration
 CANSAME5x CAN;
@@ -47,6 +51,16 @@ rclc_support_t support;
 rcl_allocator_t allocator;
 rcl_node_t node;
 rcl_timer_t timer;
+
+// IMU (MPU6050) Publisher
+rcl_publisher_t imu_publisher;
+sensor_msgs__msg__Imu imu_msg;
+// imu_data: accel_x, accel_y, accel_z, gyro_x, gyro_y, gyro_z
+float imu_data[6];
+
+bool time_synced = false;
+
+const uint8_t MPU_ADDR = 0x68;
 
 // Status layout: 6 motors * 6 values (Velocity, Position, Current, Voltage, Temp, Faults)
 const uint8_t VALUES_PER_MOTOR = 6;
@@ -131,6 +145,15 @@ void subscription_callback(const void * msgin) {
   }
 }
 
+static inline builtin_interfaces__msg__Time ros_time_now()
+{
+  builtin_interfaces__msg__Time t;
+  int64_t ns = rmw_uros_epoch_nanos();   // agent-synced epoch time in nanoseconds
+  t.sec = (int32_t)(ns / 1000000000LL);
+  t.nanosec = (uint32_t)(ns % 1000000000LL);
+  return t;
+}
+
 // Timer Callback (Publish Status)
 void timer_callback(rcl_timer_t * timer, int64_t last_call_time) {
   RCLC_UNUSED(last_call_time);
@@ -138,6 +161,63 @@ void timer_callback(rcl_timer_t * timer, int64_t last_call_time) {
     status_msg.data.data = status_data;
     status_msg.data.size = DRIVE_MOTOR_COUNT * VALUES_PER_MOTOR;
     RCSOFTCHECK(rcl_publish(&status_publisher, &status_msg, NULL));
+
+    // Read IMU and publish
+    // read_mpu6050 fills imu_data array
+    read_mpu6050();
+    // Populate sensor_msgs/Imu fields
+    imu_msg.linear_acceleration.x = (double)imu_data[0];
+    imu_msg.linear_acceleration.y = (double)imu_data[1];
+    imu_msg.linear_acceleration.z = (double)imu_data[2];
+
+    imu_msg.angular_velocity.x = (double)imu_data[3];
+    imu_msg.angular_velocity.y = (double)imu_data[4];
+    imu_msg.angular_velocity.z = (double)imu_data[5];
+
+    //...
+    imu_msg.header.stamp = ros_time_now();
+    imu_msg.header.frame_id.data = (char*)"imu_link";
+    imu_msg.header.frame_id.size = strlen("imu_link");
+    imu_msg.header.frame_id.capacity = imu_msg.header.frame_id.size + 1;
+
+    RCSOFTCHECK(rcl_publish(&imu_publisher, &imu_msg, NULL));
+  }
+}
+
+// Helper: write one register to MPU6050
+void write_mpu_register(uint8_t reg, uint8_t value) {
+  Wire.beginTransmission(MPU_ADDR);
+  Wire.write(reg);
+  Wire.write(value);
+  Wire.endTransmission();
+}
+
+// Read accelerometer and gyro from MPU6050 into imu_data[] (floats)
+void read_mpu6050() {
+  // Request 14 bytes starting at ACCEL_XOUT_H (0x3B)
+  Wire.beginTransmission(MPU_ADDR);
+  Wire.write(0x3B);
+  Wire.endTransmission(false);
+  Wire.requestFrom(MPU_ADDR, (uint8_t)14);
+
+  if (Wire.available() >= 14) {
+    int16_t ax = (Wire.read() << 8) | Wire.read();
+    int16_t ay = (Wire.read() << 8) | Wire.read();
+    int16_t az = (Wire.read() << 8) | Wire.read();
+    int16_t t  = (Wire.read() << 8) | Wire.read(); // temp, unused
+    int16_t gx = (Wire.read() << 8) | Wire.read();
+    int16_t gy = (Wire.read() << 8) | Wire.read();
+    int16_t gz = (Wire.read() << 8) | Wire.read();
+
+    // Convert raw to physical values
+    // Assuming default full-scale: accel ±2g -> 16384 LSB/g
+    // gyro ±250 deg/s -> 131 LSB/(deg/s)
+    imu_data[0] = (float)ax / 16384.0f;
+    imu_data[1] = (float)ay / 16384.0f;
+    imu_data[2] = (float)az / 16384.0f;
+    imu_data[3] = (float)gx / 131.0f;
+    imu_data[4] = (float)gy / 131.0f;
+    imu_data[5] = (float)gz / 131.0f;
   }
 }
 
@@ -313,6 +393,33 @@ void setup() {
   // Initialize status headers (optional, relying on layout convention)
   status_msg.layout.dim.capacity = 0;
   status_msg.layout.dim.size = 0;
+
+  time_synced = (rmw_uros_sync_session(2000) == RMW_RET_OK);
+
+  // Initialize I2C and MPU6050
+  Wire.begin();
+  delay(10);
+  // Wake up MPU6050 (clear sleep bit)
+  write_mpu_register(0x6B, 0x00);
+  delay(10);
+
+  // Initialize IMU publisher
+  RCCHECK(rclc_publisher_init_default(
+    &imu_publisher,
+    &node,
+    ROSIDL_GET_MSG_TYPE_SUPPORT(sensor_msgs, msg, Imu),
+    "imu_raw"));
+
+  // Initialize IMU message defaults
+  imu_msg.orientation.x = 0.0;
+  imu_msg.orientation.y = 0.0;
+  imu_msg.orientation.z = 0.0;
+  imu_msg.orientation.w = 1.0;
+  for (int i = 0; i < 9; i++) {
+    imu_msg.orientation_covariance[i] = -1.0; // orientation unknown
+    imu_msg.angular_velocity_covariance[i] = 0.0;
+    imu_msg.linear_acceleration_covariance[i] = 0.0;
+  }
 }
 
 void loop() {
