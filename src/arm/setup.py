@@ -1,6 +1,6 @@
 from setuptools import find_packages, setup
 
-package_name = 'my_robot'
+package_name = 'arm'
 
 setup(
     name=package_name,
@@ -25,8 +25,8 @@ setup(
     },
     entry_points={
         'console_scripts': [
-	'ik_node = my_robot.ik_node:main',
-        'serial_node = my_robot.serial_node:main',
+	'ik_node = arm.ik_node:main',
+        'serial_node = arm.serial_node:main',
         ],
     },
 )
