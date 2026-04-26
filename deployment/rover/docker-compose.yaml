@@ -1,0 +1,13 @@
+services:
+  rover:
+    build:
+      context: ../../
+      dockerfile: deployment/rover/Dockerfile
+    container_name: rover
+    restart: unless-stopped
+    network_mode: host
+    # volumes:
+    #   - ./config:/home/ros/config
+    #   - ./logs:/home/ros/logs
+    # Run a command to keep the container alive (e.g., tail -f /dev/null)
+    command: tail -f /dev/null

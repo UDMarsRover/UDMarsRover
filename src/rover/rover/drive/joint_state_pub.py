@@ -155,7 +155,7 @@ class JointStatePublisher(Node):
         transform.transform.rotation.z = quat[2]
         transform.transform.rotation.w = quat[3]
 
-        self.tf_broadcaster.sendTransform(transform)
+        # self.tf_broadcaster.sendTransform(transform)
 
     @staticmethod
     def euler_to_quaternion(roll, pitch, yaw):
