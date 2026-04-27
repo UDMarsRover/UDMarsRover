@@ -1,4 +1,4 @@
-(#!/usr/bin/env bash)
+#!/usr/bin/bash
 set -euo pipefail
 
 # install.sh - install and enable the rover systemd unit
