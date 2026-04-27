@@ -11,3 +11,10 @@ services:
     #   - ./logs:/home/ros/logs
     # Run a command to keep the container alive (e.g., tail -f /dev/null)
     command: tail -f /dev/null
+  micro-ros-agent:
+    image: microros/micro-ros-agent:jazzy
+    container_name: micro
+    network_mode: host
+    # devices:
+    #   - "/dev/ttyACM0:/dev/ttyACM0"
+    command: serial --dev /dev/ttyACM0
