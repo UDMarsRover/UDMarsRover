@@ -1,0 +1,18 @@
+[Unit]
+Description=UDMarsRover - Rover Docker Compose
+Requires=docker.service
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory=/home/udmrt/UDMarsRover/deployment/rover
+User=udmrt
+Environment=COMPOSE_FILE=/home/udmrt/UDMarsRover/deployment/rover/docker-compose.yaml
+ExecStart=/usr/bin/docker compose -f /home/udmrt/UDMarsRover/deployment/rover/docker-compose.yaml up -d --remove-orphans
+ExecStop=/usr/bin/docker compose -f /home/udmrt/UDMarsRover/deployment/rover/docker-compose.yaml down
+TimeoutStartSec=0
+
+[Install]
+WantedBy=multi-user.target

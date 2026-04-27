@@ -9,4 +9,6 @@ WORKDIR /home/ros_ws/
 
 COPY src/ src/
 
+RUN colcon build
+
 CMD ["bash"]    
