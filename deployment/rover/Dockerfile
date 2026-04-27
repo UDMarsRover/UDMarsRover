@@ -1,12 +1,8 @@
 # Use the ROS jazzy base image
-FROM osrf/ros:jazzy-desktop
+FROM ros:jazzy-ros-base
 
-    # Install necessary build tools and git
-RUN apt-get update && apt-get install -y \
-    git \
-    python3-pip \
-    python3-rosdep \
-    && rm -rf /var/lib/apt/lists/*
+# Install necessary packages
+RUN apt-get update
 
 # Copy the ROS package into the container
 WORKDIR /home/ros_ws/
