@@ -1,5 +1,5 @@
 # Use the ROS jazzy base image
-FROM ros:jazzy-ros-base
+FROM osrf/ros:jazzy-desktop
 
     # Install necessary build tools and git
 RUN apt-get update && apt-get install -y \
