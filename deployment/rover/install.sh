@@ -30,4 +30,3 @@ echo "Service status (last lines)"
 sudo systemctl status rover.service --no-pager || true
 
 echo "install.sh: complete"
-
