@@ -42,6 +42,16 @@ if ! command -v docker >/dev/null 2>&1; then
 		echo "Adding $REAL_USER to docker group (you may need to log out/in)"
 		sudo usermod -aG docker "$REAL_USER" || true
 	fi
+
+	# If the systemd service runs as a specific user (User=...), add that
+	# user to the docker group too so the service process can access Docker
+	# without requiring sudo. This handles the case where the service's user
+	# (e.g., "udmrt") is different from the user who ran this installer.
+	SERVICE_USER="$(grep -E '^User=' "$SERVICE_SRC" | head -n1 | cut -d= -f2 || true)"
+	if [ -n "$SERVICE_USER" ] && [ "$SERVICE_USER" != "root" ] && [ "$SERVICE_USER" != "$REAL_USER" ]; then
+		echo "Adding service user $SERVICE_USER to docker group (you may need to log out/in)"
+		sudo usermod -aG docker "$SERVICE_USER" || true
+	fi
 else
 	echo "Docker already installed"
 fi
