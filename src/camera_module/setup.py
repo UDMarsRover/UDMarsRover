@@ -8,6 +8,7 @@ setup(
     packages=[
         'camera_module',
         'camera_module.dynamixels',
+        'camera_module.streamer',
     ],
     # packages=find_packages(exclude=['test']),
     data_files=[
@@ -26,6 +27,7 @@ setup(
         'console_scripts': [
             "servo_node = camera_module.servo_ros:main",
             "dynamixel_node = camera_module.dynamixels.ros_dynamixel:main",
+            "usb_camera_streamer = camera_module.streamer.usb_camera_streamer:main",
         ],
     },
 )

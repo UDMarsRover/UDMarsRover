@@ -6,6 +6,8 @@ services:
     container_name: rover
     restart: unless-stopped
     network_mode: host
+    volumes:
+      - /dev:/dev
     # volumes:
     #   - ./config:/home/ros/config
     #   - ./logs:/home/ros/logs
