@@ -85,7 +85,7 @@ def main(args=None):
     
     # MediaMTX WHEP read endpoint format: http://<ip>:8889/<stream_name>/whep
     # Assuming MediaMTX is on the host and Docker is using --network host
-    whep_url = "http://192.168.8.101:8889/cam0/whep" 
+    whep_url = "http://192.168.8.101:8889/cam/whep" 
     
     node = MediaMtxWebRTCSubscriber(whep_url)
     
