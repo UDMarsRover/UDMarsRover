@@ -8,12 +8,22 @@ import aiohttp
 from aiortc import RTCPeerConnection, RTCSessionDescription
 
 class MediaMtxWebRTCSubscriber(Node):
-    def __init__(self, whep_url):
+    def __init__(self):
         super().__init__('webrtc_subscriber')
-        self.publisher_ = self.create_publisher(Image, 'cameras/arm/raw', 10)
-        self.bridge = CvBridge()
-        self.whep_url = whep_url
         
+        # 1. Declare parameters with safe fallback defaults
+        self.declare_parameter('whep_url', 'http://192.168.8.101:8889/cam/whep')
+        self.declare_parameter('ros_topic', 'cameras/hires/raw')
+        
+        # 2. Retrieve the runtime values
+        self.whep_url = self.get_parameter('whep_url').get_parameter_value().string_value
+        self.ros_topic = self.get_parameter('ros_topic').get_parameter_value().string_value
+        
+        # 3. Dynamically set up the publisher using the parameter value
+        self.publisher_ = self.create_publisher(Image, self.ros_topic, 10)
+        self.bridge = CvBridge()
+        
+        self.get_logger().info(f"Target ROS Topic: {self.ros_topic}")
         self.get_logger().info(f"Connecting to WebRTC WHEP endpoint: {self.whep_url}")
         
         # Start the asyncio loop in a separate thread so it doesn't block ROS2 spin
@@ -35,11 +45,11 @@ class MediaMtxWebRTCSubscriber(Node):
             if track.kind == "video":
                 asyncio.ensure_future(self.consume_track(track))
 
-        # 1. Create the WebRTC Offer
+        # Create the WebRTC Offer
         offer = await pc.createOffer()
         await pc.setLocalDescription(offer)
 
-        # 2. Send the Offer to MediaMTX via WHEP
+        # Send the Offer to MediaMTX via WHEP
         async with aiohttp.ClientSession() as session:
             async with session.post(
                 self.whep_url,
@@ -51,7 +61,7 @@ class MediaMtxWebRTCSubscriber(Node):
                     return
                 answer_sdp = await response.text()
                 
-        # 3. Set the Answer to establish the connection
+        # Set the Answer to establish the connection
         answer = RTCSessionDescription(sdp=answer_sdp, type="answer")
         await pc.setRemoteDescription(answer)
 
@@ -83,11 +93,8 @@ class MediaMtxWebRTCSubscriber(Node):
 def main(args=None):
     rclpy.init(args=args)
     
-    # MediaMTX WHEP read endpoint format: http://<ip>:8889/<stream_name>/whep
-    # Assuming MediaMTX is on the host and Docker is using --network host
-    whep_url = "http://192.168.8.101:8889/cam/whep" 
-    
-    node = MediaMtxWebRTCSubscriber(whep_url)
+    # The parameters are now resolved entirely inside the class constructor
+    node = MediaMtxWebRTCSubscriber()
     
     try:
         rclpy.spin(node)
