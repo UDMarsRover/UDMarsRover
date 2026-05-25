@@ -1,0 +1,77 @@
+# Use the official ROS 2 Humble base image for ARM64
+FROM ros:humble-ros-base
+
+# 1. Install system dependencies
+RUN apt-get update && apt-get install -y \
+    python3-pip \
+    git \
+    unzip \
+    rsync \
+    cmake \
+    build-essential \
+    protobuf-compiler \
+    libprotobuf-dev \
+    libssl-dev \
+    libffi-dev \
+    ros-dev-tools \
+    ros-humble-common-interfaces \
+    ros-humble-geometry-msgs \
+    ros-humble-sensor-msgs \
+    ros-humble-std-msgs \
+    ros-humble-vision-msgs \
+    ros-humble-camera-info-manager \
+    ros-humble-rosidl-default-generators \
+    && rm -rf /var/lib/apt/lists/*
+
+# 2. Create workspace and clone repository
+WORKDIR /ros2_ws/src
+RUN git clone -b ros2 --recurse-submodules https://github.com/introlab/opentera-webrtc-ros.git
+
+# 3. SURGERY: Completely remove Audio dependencies from the ROS code
+RUN cd opentera-webrtc-ros && \
+    # Remove audio from package.xml files
+    find . -name "package.xml" -exec sed -i '/audio_utils_msgs/d' {} + && \
+    # Remove audio from CMakeLists.txt files
+    find . -name "CMakeLists.txt" -exec sed -i '/audio_utils_msgs/d' {} + && \
+    # Strip pyaudio from Python requirements
+    find . -name "requirements.txt" -exec sed -i '/pyaudio/d' {} +
+
+
+
+
+# 4. Setup python requirements.
+# Strip PyAudio and install Python requirements
+# This removes the line containing 'pyaudio' from all requirements files
+#RUN find opentera-webrtc-ros -name "requirements.txt" -exec sed -i '/pyaudio/d' {} + && \
+  #  cd opentera-webrtc-ros && \
+  #  python3 -m pip install -r opentera_client_ros/requirements.txt && \
+ #   python3 -m pip install -r opentera_webrtc_ros/requirements.txt && \
+#    python3 -m pip install aiortc aiohttp
+
+# 4. Install Python requirements (Clean and Upgraded)
+RUN cd /ros2_ws/src/opentera-webrtc-ros && \
+    python3 -m pip install --upgrade pip && \
+    python3 -m pip install -r opentera_client_ros/requirements.txt && \
+    python3 -m pip install -r opentera_webrtc_ros/requirements.txt && \
+    python3 -m pip install aiortc aiohttp
+
+# 5. THE BUILD: Forced single-core for Pi RAM stability
+WORKDIR /ros2_ws
+RUN . /opt/ros/humble/setup.sh && \
+    # Official ROS tool to map every dependency correctly
+    rosdep update && \
+    rosdep install --from-paths src --ignore-src -y --rosdistro humble && \
+    --skip-keys "cv_camera" --skip-keys "framework" && \
+    # Build using absolute sequential execution to prevent memory crashes
+    MAKEFLAGS="-j1 -l1" colcon build \
+    --executor sequential \
+    --parallel-workers 1 \
+   # SKIP packages that require GStreamer or are failing dependencies
+    --packages-skip opentera_webrtc_ros_gstreamer map_image_generator \
+    --packages-up-to opentera_webrtc_ros \
+    --symlink-install \
+    --cmake-args -DCMAKE_BUILD_TYPE=Release \
+    -DPYTHON_EXECUTABLE=/usr/bin/python3
+
+RUN echo "source /ros2_ws/install/setup.bash" >> ~/.bashrc
+CMD ["bash"]
