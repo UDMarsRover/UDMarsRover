@@ -29,8 +29,9 @@ RUN apt-get update && apt-get install -y \
 WORKDIR /ros2_ws/src
 
 # 3. Clone repository
-RUN git clone -b ros2 --recurse-submodules https://github.com/introlab/opentera-webrtc-ros.git && \
-    git clone https://github.com/introlab/audio_utils.git
+#TEMPORARY COMMENTED
+#RUN git clone -b ros2 --recurse-submodules https://github.com/introlab/opentera-webrtc-ros.git && \
+#   git clone https://github.com/introlab/audio_utils.git
 
 # 4. Install Python WebRTC stack (aiortc)
 # We install these directly to ensure the Python client has what it needs
