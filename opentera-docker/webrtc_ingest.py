@@ -1,6 +1,7 @@
 import rclpy
 from rclpy.node import Node
-from sensor_msgs.msg import Image
+from sensor_msgs.msg import Image, CompressedImage
+import cv2
 from cv_bridge import CvBridge
 import asyncio
 import threading
@@ -21,6 +22,8 @@ class MediaMtxWebRTCSubscriber(Node):
         
         # 3. Dynamically set up the publisher using the parameter value
         self.publisher_ = self.create_publisher(Image, self.ros_topic, 10)
+        self.compressed_pub_ = self.create_publisher(CompressedImage, f"{self.ros_topic}/compressed", 10)
+
         self.bridge = CvBridge()
         
         self.get_logger().info(f"Target ROS Topic: {self.ros_topic}")
@@ -30,6 +33,7 @@ class MediaMtxWebRTCSubscriber(Node):
         self.loop = asyncio.new_event_loop()
         self.thread = threading.Thread(target=self._start_asyncio_loop, daemon=True)
         self.thread.start()
+
 
     def _start_asyncio_loop(self):
         asyncio.set_event_loop(self.loop)
@@ -86,6 +90,16 @@ class MediaMtxWebRTCSubscriber(Node):
                 msg.header.frame_id = "webrtc_camera"
                 
                 self.publisher_.publish(msg)
+
+                comp_msg = CompressedImage()
+                comp_msg.header = msg.header
+                comp_msg.format = "jpeg"
+
+                success, encode_msg = cv2.imencode('.jpg', img, [int(cv2.IMWRITE_JPEG_QUALITY), 80])
+                if success: 
+                    comp_msg.data = encode_msg.tobytes()
+                    self.compressed_pub_.publish(comp_msg)
+
             except Exception as e:
                 self.get_logger().error(f"Error processing WebRTC frame: {e}")
                 break

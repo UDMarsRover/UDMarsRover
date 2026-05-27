@@ -35,6 +35,11 @@ WORKDIR /ros2_ws/src
 COPY ./opentera-webrtc-ros /ros2_ws/src/opentera-webrtc-ros
 COPY ./audio_utils /ros2_ws/src/audio_utils
 
+COPY fastdds.xml /root/fastdds.xml
+ENV FASTRTPS_DEFAULT_PROFILES_FILE=/root/fastdds.xml
+ENV RMW_IMPLEMENTATION=rmw_fastrtps_cpp
+
+
 # 4. Install Python WebRTC stack (aiortc)
 # We install these directly to ensure the Python client has what it needs
 RUN python3 -m pip install --upgrade pip && \
