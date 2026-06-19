@@ -60,7 +60,7 @@ class IKController(Node):
         else:
             print("No IK solution")
 
-def main():
+def main(args = None):
     rclpy.init()
     node = IKController()
     rclpy.spin(node)
