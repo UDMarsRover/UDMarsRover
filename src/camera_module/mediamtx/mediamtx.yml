@@ -764,6 +764,11 @@ pathDefaults:
 # It's possible to use regular expressions by using a tilde as prefix,
 # for example "~^(test1|test2)$" will match both "test1" and "test2",
 # for example "~^prefix" will match all paths that start with "prefix".
+
+################################################################################
+#NOTE! CAMERAS MUST BE PLUGED INTO THE PI *BEOFRE* BOOT OR CONFIG WILL NOT WORK!
+################################################################################
+
 paths:
   cam0:
     source: rpiCamera
@@ -773,16 +778,12 @@ paths:
     rpiCameraVFlip: true
     rpiCameraHFlip: true
     rpiCameraBitrate: 1500000
-#  cam1:
-#    source: rpiCamera
-#    rpiCameraCamID: 1
-#    rpiCameraWidth: 1280
-#    rpiCameraHeight: 720
-#    rpiCameraVFlip: true
-#    rpiCameraHFlip: true
-#    rpiCameraBitrate: 1500000
   cam1:
     source: publisher
-    runOnInit: ffmpeg -f v4l2 -input_format mjpeg -video_size 1280x720 -framerate 30 -i /dev/video8 -c:v libx264 -preset ultrafast -tune zerolatency -b:v 2M -f rtsp rtsp://localhost:$RTSP_PORT/$MTX_PATH
+    runOnInit: ffmpeg -f v4l2 -input_format mjpeg -video_size 1280x720 -framerate 30 -i /dev/video0 -c:v libx264 -preset ultrafast -tune zerolatency -b:v 2M -f rtsp rtsp://localhost:$RTSP_PORT/$MTX_PATH
+    runOnInitRestart: yes
+  cam2:
+    source: publisher
+    runOnInit: ffmpeg -f v4l2 -input_format mjpeg -video_size 1280x720 -framerate 30 -i /dev/video2 -c:v libx264 -preset ultrafast -tune zerolatency -b:v 2M -f rtsp rtsp://localhost:$RTSP_PORT/$MTX_PATH
     runOnInitRestart: yes
 
