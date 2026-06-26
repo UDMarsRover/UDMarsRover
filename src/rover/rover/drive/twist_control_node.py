@@ -70,8 +70,9 @@ class TwistControlNode(Node):
         left_rpm = left_velocity * self.rpm_per_ms
         right_rpm = right_velocity * self.rpm_per_ms
         
-        # Create velocity array for all 6 motors
-        velocities = [0.0] * 6
+        # Create velocity array sized to fit all motor indices
+        num_motors = max(max(self.left_indices), max(self.right_indices)) + 1
+        velocities = [0.0] * num_motors
         
         # Assign velocities based on motor configuration
         for idx in self.left_indices:
