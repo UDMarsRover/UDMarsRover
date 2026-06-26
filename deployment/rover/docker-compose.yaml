@@ -15,6 +15,6 @@ services:
     image: microros/micro-ros-agent:jazzy
     container_name: micro
     network_mode: host
-    # devices:
-    #   - "/dev/ttyACM0:/dev/ttyACM0"
+    devices:
+      - "/dev/ttyACM0:/dev/ttyACM0"
     command: serial --dev /dev/ttyACM0
