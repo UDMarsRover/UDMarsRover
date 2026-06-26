@@ -11,6 +11,6 @@ WORKDIR /home/ros_ws/
 
 COPY src/ src/
 
-RUN colcon build
+RUN colcon build --packages-select rover
 
 CMD ["bash", "-c", "source install/setup.bash && ros2 launch rover rover_launch.py"]

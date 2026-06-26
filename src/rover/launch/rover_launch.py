@@ -44,12 +44,12 @@ def generate_launch_description():
             name='joy_node',
             output='screen'
         ),
-        Node(
-            package='camera_module',
-            executable='usb_camera_streamer',
-            name='usb_camera_streamer_node',
-            output='screen'
-        ),
+        # Node(
+        #     package='camera_module',
+        #     executable='usb_camera_streamer',
+        #     name='usb_camera_streamer_node',
+        #     output='screen'
+        # ),
         Node(
             package="tf2_ros",
             executable="static_transform_publisher",
