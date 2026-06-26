@@ -5,11 +5,11 @@
 
 
 
-## COMMANDS TO RUN TO SETUP AUTO START
+# COMMANDS TO RUN TO SETUP AUTO START
 
 sudo nano /etc/systemd/system/mediamtx.service
 
-# Then in that file paste:
+## Then in that file paste:
 
 [Unit]
 Description=MediaMTX Media Server
@@ -25,9 +25,11 @@ RestartSec=5
 [Install]
 WantedBy=multi-user.target
 
-# Then run:
+## Then run:
 sudo systemctl daemon-reload
+
 sudo systemctl enable mediamtx.service
+
 sudo systemctl start mediamtx.service
 
 
