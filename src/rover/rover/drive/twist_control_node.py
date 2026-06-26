@@ -11,8 +11,8 @@ class TwistControlNode(Node):
         # Declare parameters for motor configuration
         # Motor indices: which physical motor corresponds to which position
         # Default: [0,1,2] = left side, [3,4,5] = right side
-        self.declare_parameter('left_motor_indices', [0, 1, 2])
-        self.declare_parameter('right_motor_indices', [3, 4, 5])
+        self.declare_parameter('left_motor_indices', [5, 3, 4])
+        self.declare_parameter('right_motor_indices', [1, 2, 6])
         
         # Scaling factors
         self.declare_parameter('max_linear_velocity', 1.0)  # m/s
