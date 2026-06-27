@@ -11,13 +11,6 @@ TARGET="/etc/systemd/system/rover.service"
 if [ ! -f "$SERVICE_SRC" ]; then
 	echo "Service file not found: $SERVICE_SRC" >&2
 	exit 1
-TARGET="/etc/systemd/system/rover.service"
-
-if [ ! -f "$SERVICE_SRC" ]; then
-	echo "Service file not found: $SERVICE_SRC" >&2
-	exit 1
-fi
-
 fi
 
 # --- New: install Docker & docker-compose on Raspberry Pi OS if missing ---

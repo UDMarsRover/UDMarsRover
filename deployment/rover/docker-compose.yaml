@@ -16,6 +16,7 @@ services:
   micro-ros-agent:
     image: microros/micro-ros-agent:jazzy
     container_name: micro
+    restart: unless-stopped
     network_mode: host
     devices:
       - "/dev/ttyACM0:/dev/ttyACM0"
