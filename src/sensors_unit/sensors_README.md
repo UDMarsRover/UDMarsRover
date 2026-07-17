@@ -2,7 +2,7 @@
 This is the documentation on the sensors code.
 
 The micro_ros_with_gps.ino is the working code that should be put on the Ardunio Due
-# Note it will (most likely) not work on the Mega or Uno.
+### Note it will (most likely) not work on the Mega or Uno.
 
 The other file in the test_code folder were examples I used to test, but should not be used in the rover final product.
 
