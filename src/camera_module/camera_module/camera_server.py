@@ -85,45 +85,53 @@ This function aims to read the morse code apart of the competition.
 @returns 
 """
 def read_morse_from_camera(camera_id):
-    current_morse_pattern = []
-    #variables for tracking time 
-    start_blink = -1
-    end_blink = -1
-    start_dark = time.perf_counter()
-    end_dark = time.perf_counter()
-    total_blink_time = -1
-    total_off_time = -1
-    #Append pattern to words 
-    result = ""
-    #the amount of time for each 
-    DIT = 0.2  # 200 ms
-    
-    #a single, quick flash of light 
-    DOT = 0 
+    #for rclpy.init() / rclpy.ok()
+    import rclpy
 
-    # - is a light flash around 3x longer than a dot 
+    #morse pattern of the letter currently being received
+    current_morse_pattern = []
+    #decoded message so far, grows one letter at a time
+    result = ""
+
+    #the amount of time for one morse unit (a dot). Verify against the real beacon!
+    DIT = 0.2  # 200 ms
+
+    #a single, quick flash of light
+    DOT = 0
+
+    # - is a light flash around 3x longer than a dot
     DASH = 1
 
-    #A pause indicates a new letter 
-    PAUSE = 2
+    #Cutoffs halfway between the ideal morse times. Frames only arrive every
+    #~42 ms (24 fps), so a narrow window can be stepped over entirely; a
+    #halfway cutoff always classifies to the nearest symbol instead.
+    #dot = 1 unit, dash = 3 units -> longer than 2 units counts as a dash
+    DASH_MIN = DIT * 2
+    #gap inside a letter = 1 unit, gap between letters = 3 units
+    LETTER_GAP_MIN = DIT * 2
+    #gap between letters = 3 units, gap between words = 7 units
+    WORD_GAP_MIN = DIT * 5
+    #blinks shorter than half a dot are ignored as noise
+    MIN_BLINK = DIT * 0.5
 
-    #create a threshhold for light to be blinking 
+    #create a threshhold for a pixel to count as lit
     THRESHOLD = 225
+    #lit-pixel counts that flip the light state. Two different values
+    #(hysteresis) so noise wiggling around a single cutoff can't fake blinks
+    ON_PIXELS = 30
+    OFF_PIXELS = 10
 
-    #create a boolean to track if light is on 
-    light_on = False
-
-    #Create a dictionary to compare current_morse_pattern to 
+    #Create a dictionary to compare current_morse_pattern to
     MORSE_ALPHABET = {
-        (DOT, DASH): "A", 
-        (DASH, DOT, DOT, DOT): "B", 
+        (DOT, DASH): "A",
+        (DASH, DOT, DOT, DOT): "B",
         (DASH, DOT, DASH, DOT): "C",
-        (DASH, DOT, DOT): "D", 
-        (DOT,): "E", 
+        (DASH, DOT, DOT): "D",
+        (DOT,): "E",
         (DOT, DOT, DASH, DOT): "F",
         (DASH, DASH, DOT): "G",
         (DOT, DOT, DOT, DOT): "H",
-        (DOT, DOT): "I", 
+        (DOT, DOT): "I",
         (DOT, DASH, DASH, DASH): "J",
         (DASH, DOT, DASH): "K",
         (DOT, DASH, DOT, DOT): "L",
@@ -153,83 +161,100 @@ def read_morse_from_camera(camera_id):
         (DASH, DASH, DASH, DOT, DOT): "8",
         (DASH, DASH, DASH, DASH, DOT): "9"
     }
+
+    #create a boolean to track if light is on
+    light_on = False
+    #variables for tracking time
+    start_blink = 0.0
+    start_dark = time.perf_counter()
+    #the frame object handled last time, so each frame is only processed once
+    last_frame = None
+
     #------------------------------------------------------#
+    #ROS 2 must be initialized once per process before any node is created
+    try:
+        rclpy.init()
+    except RuntimeError:
+        #another part of the program already initialized it
+        pass
     node = Morse_Publisher()
     #------------------------------------------------------#
-    
-    #run until node is destroyed?
-    while rclpy.ok():
-        #grab most recent frame (possible threading issues?)
-        with latest_camera_data[camera_id]["lock"]:
-            frame = latest_camera_data[camera_id]["frame"]
-            if frame is not None:
-                frame = frame.copy()
-                #black and white version of numpy
+
+    try:
+        #run until ROS 2 shuts down
+        while rclpy.ok():
+            #hold the lock only long enough to grab the newest frame, so the
+            #capture thread is never blocked from storing the next one. No
+            #copy needed: the capture thread stores a brand new array every
+            #frame and never modifies old ones
+            with latest_camera_data[camera_id]["lock"]:
+                frame = latest_camera_data[camera_id]["frame"]
+
+            #wait briefly whenever the capture thread has not produced a new
+            #frame yet (it makes ~24 per second)
+            if frame is None or frame is last_frame:
+                time.sleep(0.005)
+                continue
+            last_frame = frame
+
+            #the moment this frame's light/dark state is judged at
+            now = time.perf_counter()
+
+            #black and white version of the frame (picamera2 XRGB frames have
+            #4 channels, the startup placeholder frame has 3)
+            if frame.ndim == 3 and frame.shape[2] == 4:
+                gray = cv2.cvtColor(frame, cv2.COLOR_BGRA2GRAY)
+            else:
                 gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-                #values will be 0 if below 200, 255 if above 
-                _, binary_frame = cv2.threshold(gray, THRESHOLD, 255, cv2.THRESH_BINARY)
 
-                #find the location of the flash         could change this to gray if not working 
-                min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(binary_frame)
+            #values will be 0 if below THRESHOLD, 255 if above
+            _, binary_frame = cv2.threshold(gray, THRESHOLD, 255, cv2.THRESH_BINARY)
 
-                #seperate x and y coordinates
-                x, y  = max_loc
+            #count how many pixels are currently lit -- works no matter where
+            #the light sits in the frame or how small the bright blob is
+            lit_pixels = cv2.countNonZero(binary_frame)
 
-                #find row, col of the brightest part of the frame and study that spot 
-                y1 = max(0, y-10)
-                y2 = min(gray.shape[0], y+10)
-                x1 = max(0, x-10)
-                x2 = min(gray.shape[1], x+10)
-                #parse brightest region for observation 
-                light_region = gray[y1:y2, x1:x2]
+            if not light_on and lit_pixels >= ON_PIXELS:
+                #the light just turned ON: the dark gap that ended decides if
+                #the previous letter (or word) is complete
+                dark_time = now - start_dark
+                if len(current_morse_pattern) != 0 and dark_time >= LETTER_GAP_MIN:
+                    result += MORSE_ALPHABET.get(tuple(current_morse_pattern), "?")
+                    current_morse_pattern = []
+                    if dark_time >= WORD_GAP_MIN:
+                        result += " "
+                    #------------------------------------------------------#
+                    #publish everything decoded so far
+                    node.append_morse(result)
+                    #------------------------------------------------------#
+                light_on = True
+                start_blink = now
 
-                brightness = np.mean(light_region)
-                #boolean to start the dark period after the first light is detected
-                seen_first_blink = False
-                #check if most of the light area is above the threshhold (light is on)
-                if(brightness >= THRESHOLD and not light_on):
-                    light_on = True
-                    start_blink = time.perf_counter()
-                    total_off_time = time.perf_counter() - start_dark
-
-                #check if the light is off
-                if(brightness < THRESHOLD and start_blink != -1):
-                    end_blink = time.perf_counter()
-                    total_blink_time = end_blink - start_blink
-                    light_on = False
-                    start_blink = -1
-                    start_dark = time.perf_counter()
-            
-                if not light_on and total_blink_time != -1:
-                    #check for new word (given 75 ms buffer)
-                    if((DIT * 7) -0.075 < total_off_time < (DIT * 7) + 0.075):
-                        if len(current_morse_pattern) != 0:
-                            result += MORSE_ALPHABET.get(tuple(current_morse_pattern), "?")
-                            result += " "
-                            #------------------------------------------------------#
-                            #add the letter to the node msg
-                            node.append_morse(result)
-                            #------------------------------------------------------#
-                            current_morse_pattern = []
-                            total_blink_time = -1
-                            total_off_time = -1
-                    # check for new letter (3 DIT pause, ~600ms)
-                    elif (DIT * 3) - 0.075 < total_off_time < (DIT * 3) + 0.075:
-                        if len(current_morse_pattern) != 0:
-                            result += MORSE_ALPHABET.get(tuple(current_morse_pattern), "?")
-                            current_morse_pattern = []
-                            total_blink_time = -1
-                    #check for dash (175 - 275)
-                    elif((DIT * 2) -0.025 < total_blink_time < (DIT * 2) + 0.075):
+            elif light_on and lit_pixels <= OFF_PIXELS:
+                #the light just turned OFF: the blink that ended is dot/dash
+                total_blink_time = now - start_blink
+                if total_blink_time >= MIN_BLINK:
+                    if total_blink_time >= DASH_MIN:
                         current_morse_pattern.append(DASH)
-                        #reset blink time to 0
-                        total_blink_time = -1
-
-                    #check for dot (75-150)
-                    elif DIT - 0.025 < total_blink_time < DIT - 0.25:
+                    else:
                         current_morse_pattern.append(DOT)
-                        total_blink_time = -1
-        
+                light_on = False
+                start_dark = now
+
+            elif not light_on and len(current_morse_pattern) != 0 and (now - start_dark) >= WORD_GAP_MIN:
+                #the light has stayed dark so long that this letter cannot get
+                #more blinks: flush it now, otherwise the last letter of the
+                #message would never be published
+                result += MORSE_ALPHABET.get(tuple(current_morse_pattern), "?")
+                result += " "
+                current_morse_pattern = []
+                #------------------------------------------------------#
+                node.append_morse(result)
+                #------------------------------------------------------#
+    finally:
+        #free the node when the loop ends
+        node.destroy_node()
+
 def capture_and_process_frames(camera_id):
     print(f"Starting capture thread for camera {camera_id}...")
     picam2 = None
