@@ -8,8 +8,6 @@ from bleak import BleakClient
 MAC_ADDRESS = "30:55:44:3A:99:2E"
 NOTIFY_CHAR_UUID = "0000ffe4-0000-1000-8000-00805f9b34fb"
 WRITE_CHAR_UUID = "0000ffe1-0000-1000-8000-00805f9b34fb"
-
-# Request ping to keep the BLE connection awake
 REQUEST_HEX = bytearray.fromhex("DDA50300FFFD77")
 
 class CanbatNode(Node):
@@ -19,8 +17,6 @@ class CanbatNode(Node):
         
         self.state = BatteryState()
         self.state.power_supply_technology = BatteryState.POWER_SUPPLY_TECHNOLOGY_LIFE
-        
-        # String buffer to stitch the ASCII stream together
         self.text_buffer = ""
         
         self.create_timer(1.0, self.publish_state)
@@ -31,16 +27,13 @@ class CanbatNode(Node):
         self.pub.publish(self.state)
 
     def ble_notification_handler(self, sender, data: bytearray):
-        # Decode and clean raw bytes
         text_chunk = data.decode('ascii', errors='ignore').replace('\x00', '')
         self.text_buffer += text_chunk
         
-        # Wait for the '^' start character
         if '^' in self.text_buffer:
             start_idx = self.text_buffer.find('^')
             self.text_buffer = self.text_buffer[start_idx:]
             
-            # The payload we care about is 61 chars long
             if len(self.text_buffer) >= 61:
                 packet = self.text_buffer[:61]
                 
@@ -48,56 +41,65 @@ class CanbatNode(Node):
                     def parse_32bit_le(hex_str):
                         rev_hex = hex_str[6:8] + hex_str[4:6] + hex_str[2:4] + hex_str[0:2]
                         return int(rev_hex, 16)
-                        
+
+                    def parse_32bit_le_signed(hex_str):
+                        val = parse_32bit_le(hex_str)
+                        return val - 2**32 if val >= 2**31 else val
+
                     def parse_16bit_le(hex_str):
                         rev_hex = hex_str[2:4] + hex_str[0:2]
                         return int(rev_hex, 16)
                     
-                    # 1. Parse Core Specs
+                    # 1. Voltage
                     voltage_mv = parse_32bit_le(packet[1:9])
-                    rem_cap_mah = parse_32bit_le(packet[9:17])
+                    
+                    # 2. Current (mA) - Positive = Charge, Negative = Discharge
+                    current_ma = parse_32bit_le_signed(packet[9:17])
+                    
+                    # 3. Total Capacity (mAh)
                     total_cap_mah = parse_32bit_le(packet[17:25])
                     
-                    # 2. Parse Temperature (0.1 Kelvin format -> 273.1 K = 0°C)
+                    # 4. Cycle Count
+                    cycles = parse_16bit_le(packet[25:29])
+                    
+                    # 5. True BMS SoC (%)
+                    bms_soc = parse_16bit_le(packet[29:33])
+                    
+                    # 6. Temperature (0.1 K -> °C)
                     temp_raw_k = parse_16bit_le(packet[33:37])
                     temp_c = (temp_raw_k - 2731) / 10.0
                     
-                    # 3. Parse Cell Voltages
+                    # 7. Cell Voltages
                     cell1_mv = parse_16bit_le(packet[45:49])
                     cell2_mv = parse_16bit_le(packet[49:53])
                     cell3_mv = parse_16bit_le(packet[53:57])
                     cell4_mv = parse_16bit_le(packet[57:61])
                     
-                    # 4. Populate ROS 2 Message Fields natively
+                    # Apply to ROS 2 BatteryState
                     self.state.voltage = voltage_mv / 1000.0
-                    self.state.capacity = rem_cap_mah / 1000.0
+                    self.state.current = current_ma / 1000.0
                     self.state.design_capacity = total_cap_mah / 1000.0
+                    self.state.percentage = float(bms_soc) / 100.0
+                    self.state.capacity = self.state.design_capacity * self.state.percentage # Calc Rem Cap
                     self.state.temperature = float(temp_c)
-                    
-                    # Add to the official ROS 2 cell_voltage array
                     self.state.cell_voltage = [
-                        cell1_mv / 1000.0, 
-                        cell2_mv / 1000.0, 
-                        cell3_mv / 1000.0, 
+                        cell1_mv / 1000.0,
+                        cell2_mv / 1000.0,
+                        cell3_mv / 1000.0,
                         cell4_mv / 1000.0
                     ]
                     
-                    if total_cap_mah > 0:
-                        self.state.percentage = float(rem_cap_mah) / float(total_cap_mah)
-                        
                     # Terminal UI
                     self.get_logger().info(
                         f"--> PARSED: {self.state.voltage:.2f}V | "
-                        f"Cap: {self.state.capacity:.2f}Ah | "
-                        f"Temp: {self.state.temperature:.1f}°C | "
-                        f"SoC: {self.state.percentage * 100:.1f}%"
+                        f"Current: {self.state.current:.2f}A | "
+                        f"SoC: {bms_soc}% | "
+                        f"Temp: {self.state.temperature:.1f}°C"
                     )
                     
                 except ValueError as e:
-                    # Downgraded from ERROR to WARN to handle RF noise gracefully
-                    self.get_logger().warn(f"Dropped corrupted BLE frame (Normal RF interference): {e}")
+                    self.get_logger().warn(f"Dropped corrupted BLE frame (RF noise): {e}")
                 
-                # Clear processed packet to catch the next one
                 self.text_buffer = self.text_buffer[61:]
 
     def run_ble_loop(self):
