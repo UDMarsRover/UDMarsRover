@@ -1,0 +1,15 @@
+services:
+  ros2_bt_node:
+    build: .
+    container_name: ros2_jazzy_bt
+    
+    # REQUIRED FOR ROS 2: Allows DDS traffic (UDP multicast) to work seamlessly across the Pi's network
+    network_mode: "host"
+    
+    # REQUIRED FOR BLUETOOTH: Grants access to the host's Bluetooth hardware
+    privileged: true
+    volumes:
+      - /var/run/dbus/system_bus_socket:/var/run/dbus/system_bus_socket
+    
+    # AUTO-START: Ensures the container starts on boot, unless you manually stop it
+    restart: unless-stopped
