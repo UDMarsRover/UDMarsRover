@@ -12,13 +12,16 @@
 const int optoPin = 21; 
 const int pulPin  = 18; 
 const int dirPin  = 5;  
-const int servoPin  = 19; 
 AccelStepper stepper(1, pulPin, dirPin); 
 const long limitMin = -200;
 const long limitMax = 200;
 
 // --- Servo Motor Settings ---
 Servo myServo;
+const int servoPin  = 19; 
+const int tiltMin = 70;  // Minimum tilt angle
+const int tiltMax = 135; // Maximum tilt angle
+
 
 // --- micro-ROS Objects ---
 rcl_subscription_t stepper_sub;
@@ -61,14 +64,14 @@ void servo_callback(const void * msgin)
   const std_msgs__msg__Int32 * msg = (const std_msgs__msg__Int32 *)msgin;
   int targetAngle = msg->data;
 
-  // Most standard control signals expect 0 to 180 degrees
-  // If you bought the 270-degree version of the RDS3218, change 180 to 270
-  if (targetAngle > 180) targetAngle = 180;
-  if (targetAngle < 0) targetAngle = 0;
+  // Constrain the target angle to your new physical limits
+  if (targetAngle > tiltMax) targetAngle = tiltMax;
+  if (targetAngle < tiltMin) targetAngle = tiltMin;
 
   // The .write() command updates a hardware timer instantly and doesn't block the loop
   myServo.write(targetAngle);
 }
+
 
 void setup() {
   set_microros_transports();
@@ -81,8 +84,8 @@ void setup() {
 
   stepper.setPinsInverted(false, true, false); 
   stepper.setMinPulseWidth(100); 
-  stepper.setMaxSpeed(2000.0);      
-  stepper.setAcceleration(1000.0);  
+  stepper.setMaxSpeed(350.0);      
+  stepper.setAcceleration(350.0);  
 
   // Initialize Servo Hardware
   // RDS3218 often uses pulse widths between 500us and 2500us for full range
