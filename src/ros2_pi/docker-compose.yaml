@@ -1,0 +1,12 @@
+version: '3.8'
+
+services:
+  ros2_bot:
+    build: .
+    container_name: ros2_hardware_nodes
+    network_mode: "host"       # Required for ROS 2 DDS to communicate across the network
+    privileged: true           # Required for seamless GPIO access
+    volumes:
+      - /var/run/dbus:/var/run/dbus  # Required for Bleak to access the host's Bluetooth stack
+      - /dev:/dev                    # Required for GPIO chip access
+    restart: unless-stopped          # Ensures the container starts automatically on boot
