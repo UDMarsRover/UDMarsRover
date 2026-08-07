@@ -14,11 +14,11 @@ class GpioSubscriber(Node):
         # Create a subscription to the /pin_cmd topic
         self.subscription = self.create_subscription(
             Bool,
-            'pin_cmd',
+            'headlights',
             self.listener_callback,
             10
         )
-        self.get_logger().info(f'Listening on /pin_cmd to control GPIO {self.pin_number}')
+        self.get_logger().info(f'Listening on /headlights to control GPIO {self.pin_number}')
 
     def listener_callback(self, msg: Bool):
         if msg.data:
