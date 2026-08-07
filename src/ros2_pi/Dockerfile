@@ -1,4 +1,4 @@
-FROM ros:humble-ros-base
+FROM ros:jazzy-ros-base
 
 # Prevent interactive prompts during apt installations
 ENV DEBIAN_FRONTEND=noninteractive
@@ -12,7 +12,7 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Python libraries
-# Using PIP_BREAK_SYSTEM_PACKAGES to bypass Ubuntu 22.04 pip warnings in containers
+# Bypasses Ubuntu 24.04's strict PEP 668 pip restrictions inside the container
 ENV PIP_BREAK_SYSTEM_PACKAGES=1
 RUN pip3 install bleak gpiozero rpi-lgpio
 
