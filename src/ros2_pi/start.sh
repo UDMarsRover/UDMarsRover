@@ -1,6 +1,6 @@
 #!/bin/bash
-# Source the ROS 2 Humble environment
-source /opt/ros/humble/setup.bash
+# Source the ROS 2 Jazzy environment
+source /opt/ros/jazzy/setup.bash
 
 echo "Starting ROS 2 Nodes..."
 
