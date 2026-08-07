@@ -9,4 +9,5 @@ services:
     volumes:
       - /var/run/dbus:/var/run/dbus  # Required for Bleak to access the host's Bluetooth stack
       - /dev:/dev                    # Required for GPIO chip access
+      - /sys:/sys:ro   # Added to read exact hardware temperatures
     restart: unless-stopped          # Ensures the container starts automatically on boot
