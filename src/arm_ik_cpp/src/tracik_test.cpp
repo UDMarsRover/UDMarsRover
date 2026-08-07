@@ -14,7 +14,7 @@ int main(int argc, char ** argv)
         rclcpp::Node::make_shared("tracik_test");
 
     std::ifstream urdf_file(
-        "/home/tim/MarsRover/UDMarsRover/src/arm/urdf/robot.urdf"
+        "/home/tom/Workspaces/UDMarsRover/src/arm/urdf/robot.urdf"
     );
 
     if (!urdf_file.is_open())

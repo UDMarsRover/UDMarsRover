@@ -2,6 +2,7 @@ import serial
 import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import JointState
+from arm_control.cpp import arm_control
 
 class SerialBridge(Node):
     def __init__(self):
@@ -10,8 +11,8 @@ class SerialBridge(Node):
         self.ser = serial.Serial('/dev/ttyUSB0', 115200)
 
         self.create_subscription(
-            JointState,
-            '/joint_targets',
+            arm_control,
+            '/arm_command',
             self.callback,
             10
         )
