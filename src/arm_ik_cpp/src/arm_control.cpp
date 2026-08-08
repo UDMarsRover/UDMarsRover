@@ -29,7 +29,7 @@ public:
         joy_sub_ =
             create_subscription<
                 sensor_msgs::msg::Joy>(
-                    "/joy",
+                    "/arm/joy", //need to run the following command to remap the joy topic: ros2 run joy joy_node --ros-args --remap /joy:=/arm/joy
                     10,
                     std::bind(
                         &ArmControl::joyCallback,
