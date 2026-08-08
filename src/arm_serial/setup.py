@@ -1,6 +1,6 @@
 from setuptools import find_packages, setup
 
-package_name = 'arm_control'
+package_name = 'arm_serial'
 
 setup(
     name=package_name,
@@ -13,8 +13,6 @@ setup(
     ],
     install_requires=['setuptools'],
     zip_safe=True,
-    maintainer='tim',
-    maintainer_email='trexmail3000@gmail.com',
     description='TODO: Package description',
     license='TODO: License declaration',
     extras_require={
@@ -24,7 +22,7 @@ setup(
     },
     entry_points={
         'console_scripts': [
-            'arm_control = arm_control.arm_control:main'
+            'serial_sender = arm_serial.serial_sender:main',
         ],
     },
 )
