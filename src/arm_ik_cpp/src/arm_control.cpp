@@ -39,8 +39,9 @@ public:
 
 private:
 
-    float target_position_[5] =
+    float target_position_[6] =
 {
+    0.0f,
     0.0f,
     0.0f,
     0.0f,
@@ -53,16 +54,16 @@ private:
     {
         std_msgs::msg::Float32MultiArray command;
 
-        command.data.resize(5);
+        command.data.resize(6);
 
         //------------------------------------------
         // Map controls here
         //------------------------------------------
 
         target_position_[0] += msg->axes[0] * MAX_STEPS_PER_UPDATE;   // Turret
-        target_position_[1] += msg->axes[1] * MAX_STEPS_PER_UPDATE;   // Shoulder
-        target_position_[2] += msg->axes[3] * MAX_STEPS_PER_UPDATE;   // Elbow
-        target_position_[3] += msg->axes[2] * MAX_STEPS_PER_UPDATE;   // Gripper
+        target_position_[1] += msg->axes[1] * MAX_STEPS_PER_UPDATE * 5;   // Shoulder
+        target_position_[2] += msg->axes[3] * MAX_STEPS_PER_UPDATE * 5;   // Elbow
+        target_position_[3] += msg->axes[2] * MAX_STEPS_PER_UPDATE * 8;   // Gripper
         if(msg->buttons[8] == 1)
         {
             target_position_[4] = 50.0f;   // Wrist
@@ -75,6 +76,18 @@ private:
         {
             target_position_[4] = 0.0f;   // Wrist
         }
+        if(msg->buttons[6] == 1)
+        {
+            target_position_[5] = 5.0f;   // Wrist
+        }
+        else if(msg->buttons[5] == 1)
+        {
+            target_position_[5] = -5.0f;   // Wrist
+        }
+        else
+        {
+            target_position_[5] = 0.0f;   // Wrist
+        }
 
         publishCommand();
     }
@@ -83,9 +96,9 @@ private:
     {
         std_msgs::msg::Float32MultiArray command;
 
-        command.data.resize(5);
+        command.data.resize(6);
 
-        for (int i = 0; i < 5; i++)
+        for (int i = 0; i < 6; i++)
         {
             command.data[i] = target_position_[i];
         }
