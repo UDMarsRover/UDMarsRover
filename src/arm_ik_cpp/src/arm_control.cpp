@@ -76,18 +76,16 @@ private:
         {
             target_position_[4] = 0.0f;   // Wrist
         }
+
         if(msg->buttons[6] == 1)
         {
-            target_position_[5] = 5.0f;   // Wrist
+            target_position_[5] += 50.0f;   // linear act
         }
         else if(msg->buttons[5] == 1)
         {
-            target_position_[5] = -5.0f;   // Wrist
+            target_position_[5] += -50.0f;   // linear act
         }
-        else
-        {
-            target_position_[5] = 0.0f;   // Wrist
-        }
+        
 
         publishCommand();
     }
@@ -97,7 +95,7 @@ private:
         std_msgs::msg::Float32MultiArray command;
 
         command.data.resize(6);
-
+        
         for (int i = 0; i < 6; i++)
         {
             command.data[i] = target_position_[i];
