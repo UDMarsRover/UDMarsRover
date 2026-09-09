@@ -1,25 +1,26 @@
-#include <micro_ros_arduino.h>
-#include <stdio.h>
-#include <rcl/rcl.h>
-#include <rcl/error_handling.h>
-#include <rclc/rclc.h>
-#include <rclc/executor.h>
-#include <std_msgs/msg/float32_multi_array.h>
-#include <std_msgs/msg/bool.h>
-#include <CANSAME5x.h>
+#include <micro_ros_arduino.h> // load micro ros
+#include <stdio.h> // C library
+#include <rcl/rcl.h> // ros client library in C
+#include <rcl/error_handling.h> // catch and handle errors for ros 2 operations
+#include <rclc/rclc.h> // ros client library for C, microcontroller specific
+#include <rclc/executor.h> // controls traffic for microcontroller
+#include <std_msgs/msg/float32_multi_array.h> // allows program to publish or subscribe to arrays
+#include <std_msgs/msg/bool.h> // send and receive true/false values
+#include <CANSAME5x.h> // hardware specific library for CAN controller
 
 // CAN Configuration
 CANSAME5x CAN;
 
-// CAN IDs and Enums
+// names CAN bus IDs, return address for data coming from motor controller to microcontroller
 enum status_frame_id {
-  status_0 = 0x2051800,
-  status_1 = 0x2051840,
-  status_2 = 0x2051880,
-  status_3 = 0x20518C0,
+  status_0 = 0x2051800, // contains fast changing data
+  status_1 = 0x2051840, // contains motor velocity, temp, and input voltage
+  status_2 = 0x2051880, // contains motors exact position
+  status_3 = 0x20518C0, // 3&4 contains extra data
   status_4 = 0x2051900
 };
 
+// allows motor controller to interpret input
 enum control_mode {
   Duty_Cycle_Set = 0x2050080,
   Speed_Set = 0x2050480,
@@ -31,17 +32,20 @@ enum control_mode {
 };
 
 // Control Frame
-const uint8_t CONTROL_SIZE = 8;
-const uint8_t STATUS_SIZE = 8;
-const uint8_t DRIVE_MOTOR_COUNT = 6;
+const uint8_t CONTROL_SIZE = 8; // always pack 8 bytes when sending commands to rover
+const uint8_t STATUS_SIZE = 8; // always expect 8 bytes when reading telemetry from motor controllers
+const uint8_t DRIVE_MOTOR_COUNT = 6; // how many drive motors exist
 
 // Micro-ROS Variables
-rcl_publisher_t status_publisher;
-rcl_subscription_t velocity_subscriber;
-rcl_subscription_t idle_mode_subscriber;
-std_msgs__msg__Float32MultiArray status_msg;
-std_msgs__msg__Float32MultiArray velocity_msg;
-std_msgs__msg__Bool idle_mode_msg;
+//communication
+rcl_publisher_t status_publisher; // sends telemetry data out from Arduino to maun ROS 2 network
+rcl_subscription_t velocity_subscriber; // listens for incoming drive commands from the main computer
+rcl_subscription_t idle_mode_subscriber; // listens for command to change the motor state (coast or brake)
+// message buffers
+std_msgs__msg__Float32MultiArray status_msg; // holds arrays of decimal numbers being sent or received
+std_msgs__msg__Float32MultiArray velocity_msg; // ^
+std_msgs__msg__Bool idle_mode_msg; // holds true or false value for idle mode subscriber
+// system management
 rclc_executor_t executor;
 rclc_support_t support;
 rcl_allocator_t allocator;
